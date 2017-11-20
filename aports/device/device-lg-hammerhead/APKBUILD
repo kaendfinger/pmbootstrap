@@ -8,7 +8,7 @@ license="MIT"
 depends="linux-lg-hammerhead linux-firmware mkbootimg"
 makedepends=""
 install=""
-subpackages=""
+subpackages="$pkgname-weston $pkgname-x11"
 source="
 	deviceinfo
 	90-android-touch-dev.rules
@@ -31,12 +31,22 @@ package() {
 		"$pkgdir"/etc/profile.d/00-udev-v4l-hack.sh
 	install -Dm644 "$srcdir"/bcmdhd.cal \
 		"$pkgdir"/etc/wifi/bcmdhd.cal
+}
+
+x11() {
+	install_if="$pkgname xorg-server"
+	depends="
+		libinput
+		xf86-input-libinput
+		xf86-video-fbdev"
+	mkdir "$subpkgdir"
 	install -Dm644 "$srcdir"/xorg.conf \
-		"$pkgdir"/etc/X11/xorg.conf.d/10-hammerhead.conf
+		"$subpkgdir"/etc/X11/xorg.conf.d/10-hammerhead.conf
 }
 
 weston() {
 	install_if="$pkgname weston"
+	mkdir "$subpkgdir"
 	install -Dm644 "$srcdir"/weston.ini \
 		"$subpkgdir"/etc/xdg/weston/weston.ini
 }
