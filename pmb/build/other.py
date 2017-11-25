@@ -246,17 +246,21 @@ def index_repo(args, arch=None):
         paths = glob.glob(args.work + "/packages/*")
 
     for path in paths:
-        path_arch = os.path.basename(path)
-        path_repo_chroot = "/home/pmos/packages/pmos/" + path_arch
-        logging.debug("(native) index " + path_arch + " repository")
-        commands = [
-            ["apk", "-q", "index", "--output", "APKINDEX.tar.gz_",
-             "--rewrite-arch", path_arch, "*.apk"],
-            ["abuild-sign", "APKINDEX.tar.gz_"],
-            ["mv", "APKINDEX.tar.gz_", "APKINDEX.tar.gz"]
-        ]
-        for command in commands:
-            pmb.chroot.user(args, command, working_dir=path_repo_chroot)
+        if os.path.exists(path):
+            path_arch = os.path.basename(path)
+            path_repo_chroot = "/home/pmos/packages/pmos/" + path_arch
+            logging.debug("(native) index " + path_arch + " repository")
+            commands = [
+                ["apk", "-q", "index", "--output", "APKINDEX.tar.gz_",
+                 "--rewrite-arch", path_arch, "*.apk"],
+                ["abuild-sign", "APKINDEX.tar.gz_"],
+                ["mv", "APKINDEX.tar.gz_", "APKINDEX.tar.gz"]
+            ]
+            for command in commands:
+                pmb.chroot.user(args, command, working_dir=path_repo_chroot)
+        else:
+            logging.debug("NOTE: Can't build index for non-existing path: " +
+                          path)
         pmb.parse.apkindex.clear_cache(args, path + "/APKINDEX.tar.gz")
 
 
