@@ -16,22 +16,27 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with pmbootstrap.  If not, see <http://www.gnu.org/licenses/>.
 """
+
+"""
+This file tests all functions from pmb.build._package.
+"""
+
+import glob
 import os
-import sys
 import pytest
+import sys
 
 # Import from parent directory
 sys.path.append(os.path.realpath(
     os.path.join(os.path.dirname(__file__) + "/..")))
-import pmb.aportgen
-import pmb.config
+import pmb.build
 import pmb.helpers.logging
 
 
 @pytest.fixture
 def args(tmpdir, request):
     import pmb.parse
-    sys.argv = ["pmbootstrap.py", "chroot"]
+    sys.argv = ["pmbootstrap", "--mirror-pmOS=", "init"]
     args = pmb.parse.arguments()
     args.log = args.work + "/log_testsuite.txt"
     pmb.helpers.logging.init(args)
@@ -39,13 +44,24 @@ def args(tmpdir, request):
     return args
 
 
-def test_build(args):
-    pmb.build.package(args, "hello-world", args.arch_native, True)
+def test_buildroot_aarch64_init(args):
+    # Remove aarch64 chroot
+    pmb.chroot.shutdown(args)
+    path = args.work + "/chroot_buildroot_aarch64"
+    if os.path.exists(path):
+        pmb.helpers.run.root(args, ["rm", "-rf", path])
 
+    # Remove existing workaround packages
+    pattern_workaround_apk = (args.work + "/packages/aarch64/"
+                              "abuild-aarch64-qemu-workaround-*")
+    for match in glob.glob(pattern_workaround_apk):
+        pmb.helpers.run.root(args, ["rm", match])
+    pmb.build.index_repo(args, "aarch64")
 
-def test_build_cross(args):
-    """
-    Build in non-native chroot, with cross-compiler through distcc.
-    """
-    for arch in pmb.config.build_device_architectures:
-        pmb.build.package(args, "hello-world", arch, True)
+    # Build hello-world for aarch64, causing the chroot to initialize properly
+    pmb.build.package(args, "hello-world", "aarch64", force=True)
+
+    # Verify that the workaround was built and installed
+    assert len(glob.glob(pattern_workaround_apk))
+    assert os.path.exists(args.work + "/chroot_buildroot_aarch64/usr/bin"
+                          "/abuild-tar-patched")
