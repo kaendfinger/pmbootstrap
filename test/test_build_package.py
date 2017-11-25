@@ -38,7 +38,7 @@ import pmb.helpers.logging
 @pytest.fixture
 def args(tmpdir, request):
     import pmb.parse
-    sys.argv = ["pmbootstrap", "--mirror-pmOS=", "init"]
+    sys.argv = ["pmbootstrap", "init"]
     args = pmb.parse.arguments()
     args.log = args.work + "/log_testsuite.txt"
     pmb.helpers.logging.init(args)
@@ -241,13 +241,13 @@ def test_finish(args, monkeypatch):
 
 def test_package(args):
     # First build
-    assert pmb.build.package(args, "hello-world", force=True) is not None
+    assert pmb.build.package(args, "hello-world", force=True)
 
     # Package exists
     assert pmb.build.package(args, "hello-world") is None
 
     # Force building again
-    assert pmb.build.package(args, "hello-world", force=True) is not None
+    assert pmb.build.package(args, "hello-world", force=True)
 
     # Build for another architecture
     assert pmb.build.package(args, "hello-world", "armhf", force=True)
@@ -256,14 +256,24 @@ def test_package(args):
     assert pmb.build.package(args, "alpine-base") is None
 
 
-def test_build_depends_high_level(args):
+def test_build_depends_high_level(args, monkeypatch):
     """
     "hello-world-wrapper" depends on "hello-world". We build both, then delete
     "hello-world" and check that it gets rebuilt correctly again.
     """
+    # Patch pmb.build.is_necessary() to always build the hello-world package
+    def fake_build_is_necessary(args, arch, apkbuild, apkindex_path=None):
+        if apkbuild["pkgname"] == "hello-world":
+            return True
+        return pmb.build.other.is_necessary(args, arch, apkbuild,
+                                            apkindex_path)
+    monkeypatch.setattr(pmb.build, "is_necessary",
+                        fake_build_is_necessary)
+
     # Build hello-world to get its full output path
-    output_hello = pmb.build.package(args, "hello-world", force=True)
+    output_hello = pmb.build.package(args, "hello-world")
     output_hello_outside = args.work + "/packages/" + output_hello
+    assert os.path.exists(output_hello_outside)
 
     # Make sure the wrapper exists
     pmb.build.package(args, "hello-world-wrapper")

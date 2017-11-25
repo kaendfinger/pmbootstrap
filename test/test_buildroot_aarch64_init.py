@@ -36,7 +36,7 @@ import pmb.helpers.logging
 @pytest.fixture
 def args(tmpdir, request):
     import pmb.parse
-    sys.argv = ["pmbootstrap", "--mirror-pmOS=", "init"]
+    sys.argv = ["pmbootstrap", "init"]
     args = pmb.parse.arguments()
     args.log = args.work + "/log_testsuite.txt"
     pmb.helpers.logging.init(args)
@@ -44,7 +44,16 @@ def args(tmpdir, request):
     return args
 
 
-def test_buildroot_aarch64_init(args):
+def test_buildroot_aarch64_init(args, monkeypatch):
+    # Patch pmb.build.is_necessary() to always build the workaround package
+    def fake_build_is_necessary(args, arch, apkbuild, apkindex_path=None):
+        if apkbuild["pkgname"] == "abuild-aarch64-qemu-workaround":
+            return True
+        return pmb.build.other.is_necessary(args, arch, apkbuild,
+                                            apkindex_path)
+    monkeypatch.setattr(pmb.build, "is_necessary",
+                        fake_build_is_necessary)
+
     # Remove aarch64 chroot
     pmb.chroot.shutdown(args)
     path = args.work + "/chroot_buildroot_aarch64"
